@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RoadPulse — Marakkanam Route Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDEFEA; --panel:#FFFFFF; --panel-2:#F5F6F1; --line:#D8DAD1;
+  --ink:#20242A; --ink-dim:#5B6058;
+  --rust:#C4551C; --rust-soft:#F3DCC8;
+  --hazard:#B8860B; --hazard-soft:#F6E9C4;
+  --brick:#A23B2E; --brick-soft:#F3D9D4;
+  --moss:#3F7256; --moss-soft:#DCEAE0;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#191B1E; --panel:#212429; --panel-2:#262931; --line:#34383F;
+    --ink:#ECE9DF; --ink-dim:#9A9F9A;
+    --rust-soft:#3B2415; --hazard-soft:#392C0D; --brick-soft:#331714; --moss-soft:#132A20;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#191B1E; --panel:#212429; --panel-2:#262931; --line:#34383F;
+  --ink:#ECE9DF; --ink-dim:#9A9F9A;
+  --rust-soft:#3B2415; --hazard-soft:#392C0D; --brick-soft:#331714; --moss-soft:#132A20;
+}
+*{box-sizing:inherit;}
+html,body{height:100%;margin:0;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{background:var(--paper); color:var(--ink); font-family:'Inter',-apple-system,'Segoe UI',sans-serif; font-size:15px; line-height:1.6;}
+h1,h2,h3{font-family:'Fraunces',Georgia,serif; font-weight:600; margin:0;}
+.stripe{height:5px; background:repeating-linear-gradient(115deg, var(--hazard) 0 14px, var(--ink) 14px 28px); opacity:0.85;}
+.app{display:flex; min-height:calc(100% - 5px);}
+
+.rail{width:236px; flex:0 0 236px; background:var(--panel); border-right:1px solid var(--line); padding:20px 14px; display:flex; flex-direction:column; gap:24px; position:sticky; top:0; align-self:flex-start; height:100vh;}
+.brand{display:flex; align-items:center; gap:10px; padding:2px 6px 14px; border-bottom:1px solid var(--line);}
+.pulse{width:12px;height:12px;border-radius:50%; background:var(--moss); position:relative; flex:0 0 auto;}
+.pulse::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--moss); animation:ping 2.4s ease-out infinite;}
+@keyframes ping{0%{transform:scale(0.6);opacity:0.9;} 100%{transform:scale(2.1);opacity:0;}}
+@media (prefers-reduced-motion:reduce){.pulse::after{animation:none;}}
+.brand-text{font-family:'Fraunces',serif; font-weight:600; font-size:17px;}
+.brand-sub{font-size:11.5px; color:var(--ink-dim); margin-top:1px;}
+
+nav{display:flex; flex-direction:column; gap:2px;}
+.nav-btn{display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:7px; border:none; background:transparent; color:var(--ink-dim); font:inherit; font-size:14px; font-weight:500; cursor:pointer; text-align:left; width:100%;}
+.nav-btn:hover{background:var(--panel-2); color:var(--ink);}
+.nav-btn.active{background:var(--rust-soft); color:var(--rust); font-weight:600;}
+.nav-btn.active .nav-icon{opacity:1;}
+.nav-icon{font-size:15px; width:18px; text-align:center; opacity:0.75;}
+
+.rail-foot{margin-top:auto; display:flex; flex-direction:column; gap:10px; padding-top:12px; border-top:1px solid var(--line);}
+.status-line{font-size:12.5px; color:var(--ink-dim);}
+.status-line b{color:var(--ink);}
+.theme-btn{align-self:flex-start; background:var(--panel-2); border:1px solid var(--line); border-radius:20px; padding:6px 12px; font-size:12.5px; color:var(--ink-dim); cursor:pointer; font-family:inherit;}
+.theme-btn:hover{color:var(--ink);}
+
+main{flex:1; min-width:0; padding:30px 36px 60px; max-width:1060px;}
+.panel{display:none;}
+.panel.active{display:block; animation:rise .35s ease;}
+@keyframes rise{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
+@media (prefers-reduced-motion:reduce){.panel.active{animation:none;}}
+
+.tag{display:inline-block; font-size:12px; font-weight:600; color:var(--rust); padding:3px 0; border-bottom:2px solid var(--rust); margin-bottom:10px;}
+.page-head h1{font-size:28px; margin-bottom:8px;}
+.page-head p{color:var(--ink-dim); margin:0 0 26px; max-width:58ch;}
+
+.grid{display:grid; grid-template-columns:1.1fr 1fr 1fr; gap:14px; margin-bottom:18px;}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:9px; padding:18px;}
+.stat-label{font-size:12.5px; color:var(--ink-dim); margin-bottom:9px;}
+.stat-value{font-family:'Fraunces',serif; font-size:32px; font-weight:600;}
+.stat-value.rust{color:var(--rust);} .stat-value.moss{color:var(--moss);} .stat-value.brick{color:var(--brick);}
+.stat-delta{font-size:12px; color:var(--ink-dim); margin-top:4px;}
+.bars{display:flex; align-items:flex-end; gap:6px; height:44px; margin-top:2px;}
+.bars i{flex:1; background:var(--rust-soft); border-radius:2px 2px 0 0; position:relative;}
+.bars i b{position:absolute; inset:0; background:var(--rust); border-radius:2px 2px 0 0;}
+.bars-labels{display:flex; gap:6px; margin-top:5px;}
+.bars-labels span{flex:1; text-align:center; font-size:10px; color:var(--ink-dim);}
+
+.row{display:flex; gap:14px; align-items:stretch;}
+.col{flex:1; min-width:0;}
+.panel-card{background:var(--panel); border:1px solid var(--line); border-radius:9px; padding:20px;}
+.panel-card h3{font-size:16px; margin-bottom:4px;}
+.hint{color:var(--ink-dim); font-size:13px; margin:0 0 14px;}
+
+.readout{display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
+.readout:last-child{border-bottom:none;}
+.readout .k{color:var(--ink-dim);}
+.readout .v{font-weight:600;}
+
+.btn{display:inline-flex; align-items:center; gap:8px; padding:11px 18px; border-radius:8px; border:none; font:inherit; font-weight:600; font-size:14px; cursor:pointer; text-decoration:none;}
+.btn-rust{background:var(--rust); color:#FFF6EE;}
+.btn-rust:hover{filter:brightness(1.07);}
+.btn-line{background:transparent; border:1px solid var(--line); color:var(--ink);}
+.btn-line:hover{background:var(--panel-2);}
+.btn:disabled{opacity:0.55; cursor:default;}
+
+.live-box{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:28px; margin-bottom:18px;}
+.live-top{display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap;}
+.live-ip{font-family:'Fraunces',serif; font-size:20px; margin:10px 0 4px;}
+.signal{display:flex; gap:3px; align-items:flex-end; height:22px;}
+.signal i{width:5px; background:var(--moss); border-radius:1px;}
+.checklist{display:flex; flex-direction:column; gap:0;}
+.check-row{display:flex; gap:12px; padding:14px 0; border-bottom:1px solid var(--line);}
+.check-row:last-child{border-bottom:none;}
+.check-n{font-family:'Fraunces',serif; font-weight:600; color:var(--rust); width:22px;}
+.check-row h4{margin:0 0 3px; font-size:14px;}
+.check-row p{margin:0; font-size:13px; color:var(--ink-dim);}
+
+.map-wrap{background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+.map-svg{display:block; width:100%; height:auto; background:var(--panel-2); cursor:default;}
+.pin{cursor:pointer;}
+.pin circle.ring{opacity:0; transition:opacity .15s;}
+.pin:hover circle.ring, .pin.sel circle.ring{opacity:0.35;}
+.map-legend{display:flex; gap:18px; padding:12px 18px; border-top:1px solid var(--line); flex-wrap:wrap;}
+.legend-item{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-dim);}
+.swatch{width:9px;height:9px;border-radius:50%;}
+.detail-panel{margin-top:14px; padding:16px 18px; border-radius:9px; background:var(--panel); border:1px solid var(--line); display:none;}
+.detail-panel.show{display:block;}
+.detail-panel h4{font-size:15px; margin-bottom:4px;}
+.detail-panel p{margin:0 0 10px; color:var(--ink-dim); font-size:13.5px;}
+.log-list{margin-top:14px; display:flex; flex-direction:column; gap:8px;}
+.log-row{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 14px; background:var(--panel); border:1px solid var(--line); border-radius:8px; font-size:13.5px; cursor:pointer;}
+.log-row:hover{border-color:var(--rust);}
+.sev{padding:2px 9px; border-radius:20px; font-size:11.5px; font-weight:600;}
+.sev-high{background:var(--brick-soft); color:var(--brick);}
+.sev-medium{background:var(--hazard-soft); color:var(--hazard);}
+.sev-low{background:var(--moss-soft); color:var(--moss);}
+
+form{display:flex; flex-direction:column; gap:16px; max-width:540px;}
+label{font-size:13px; color:var(--ink-dim); display:block; margin-bottom:6px;}
+input,textarea{width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:7px; padding:10px 12px; color:var(--ink); font:inherit; font-size:14px;}
+textarea{resize:vertical; min-height:80px;}
+input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
+.field{display:flex; flex-direction:column;}
+.seg{display:flex; gap:8px;}
+.seg-btn{flex:1; padding:10px; border-radius:7px; border:1px solid var(--line); background:var(--panel-2); color:var(--ink-dim); font:inherit; font-size:13.5px; font-weight:600; cursor:pointer;}
+.seg-btn[aria-pressed="true"]{border-color:var(--rust); color:var(--rust); background:var(--rust-soft);}
+.loc-row{display:flex; gap:8px;}
+.loc-row input{flex:1;}
+.photo-row{display:flex; align-items:center; gap:12px;}
+.photo-thumb{width:56px;height:56px;border-radius:7px; background:var(--panel-2); border:1px dashed var(--line); background-size:cover; background-position:center; flex:0 0 auto;}
+.toast{display:none; margin-top:2px; padding:12px 14px; border-radius:8px; background:var(--moss-soft); color:var(--moss); font-size:13.5px; font-weight:500;}
+.toast.show{display:block;}
+.reports-list{margin-top:24px; display:flex; flex-direction:column; gap:8px; max-width:560px;}
+.report-item{display:flex; align-items:center; gap:12px; padding:11px 14px; background:var(--panel); border:1px solid var(--line); border-radius:8px;}
+.report-thumb{width:38px;height:38px;border-radius:6px;background:var(--panel-2); background-size:cover; background-position:center; flex:0 0 auto;}
+.report-item .rtext{flex:1; font-size:13.5px;}
+.report-item .rtime{font-size:11.5px; color:var(--ink-dim);}
+
+.flow{display:flex; align-items:center; gap:4px; margin:20px 0 28px; overflow-x:auto; padding-bottom:6px;}
+.flow-step{flex:0 0 auto; width:118px; text-align:center;}
+.flow-icon{width:52px;height:52px;border-radius:50%; background:var(--panel); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:20px; margin:0 auto 8px;}
+.flow-step p{margin:0; font-size:12px; color:var(--ink-dim); line-height:1.3;}
+.flow-arrow{color:var(--line); font-size:18px; flex:0 0 auto;}
+.steps{display:flex; flex-direction:column;}
+.step{display:flex; gap:16px; padding:18px 0; border-bottom:1px solid var(--line);}
+.step:last-child{border-bottom:none;}
+.step-n{font-family:'Fraunces',serif; font-weight:600; font-size:14px; color:var(--rust); width:28px; flex:0 0 auto;}
+.step-body h3{font-size:15px; margin-bottom:4px;}
+.step-body p{margin:0; color:var(--ink-dim); font-size:13.5px; max-width:62ch;}
+
+@media (max-width:820px){
+  .app{flex-direction:column;}
+  .rail{width:100%; flex:none; height:auto; position:sticky; top:0; z-index:5; flex-direction:row; align-items:center; overflow-x:auto; padding:12px 14px;}
+  .brand{border-bottom:none; padding-bottom:0;}
+  .rail-foot{display:none;}
+  nav{flex-direction:row;}
+  .nav-btn{white-space:nowrap;}
+  main{padding:22px 18px 50px;}
+  .grid{grid-template-columns:1fr;}
+  .row{flex-direction:column;}
+  .live-top{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<div class="app">
+
+  <aside class="rail">
+    <div class="brand">
+      <div class="pulse"></div>
+      <div>
+        <div class="brand-text">RoadPulse</div>
+        <div class="brand-sub">ECR service road · Marakkanam</div>
+      </div>
+    </div>
+    <nav>
+      <button class="nav-btn active" data-tab="overview"><span class="nav-icon">◎</span>Overview</button>
+      <button class="nav-btn" data-tab="live"><span class="nav-icon">⬡</span>Live dashboard</button>
+      <button class="nav-btn" data-tab="location"><span class="nav-icon">◈</span>Location tracking</button>
+      <button class="nav-btn" data-tab="report"><span class="nav-icon">◑</span>Report a pothole</button>
+      <button class="nav-btn" data-tab="how"><span class="nav-icon">◐</span>How it works</button>
+    </nav>
+    <div class="rail-foot">
+      <div class="status-line"><b>ESP32-01</b> · online 6d 4h</div>
+      <button class="theme-btn" id="themeBtn">Switch to dark view</button>
+    </div>
+  </aside>
+
+  <main>
+
+    <section class="panel active" id="overview">
+      <div class="page-head">
+        <div class="tag">This week's readings</div>
+        <h1>How the road's been treating people</h1>
+        <p>Readings from the vibration-and-IMU node on the ECR service stretch, plus what's been reported by hand.</p>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="stat-label">Detections, last 7 days</div>
+          <div class="bars">
+            <i style="height:38%"></i><i style="height:52%"></i><i style="height:30%"></i>
+            <i style="height:70%"></i><i style="height:44%"></i><i style="height:60%"><b style="height:100%"></b></i><i style="height:26%"></i>
+          </div>
+          <div class="bars-labels"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+          <div class="stat-delta">7 total, up from 5 last week</div>
+        </div>
+        <div class="card"><div class="stat-label">Node uptime</div><div class="stat-value moss">99.2%</div><div class="stat-delta">Last restart 6 days ago</div></div>
+        <div class="card"><div class="stat-label">Awaiting repair</div><div class="stat-value brick">3</div><div class="stat-delta">1 flagged high severity</div></div>
+      </div>
+      <div class="row">
+        <div class="col panel-card">
+          <h3>What the node is seeing right now</h3>
+          <p class="hint">Pulled from the ESP32 + IMU readout.</p>
+          <div class="readout"><span class="k">Last event</span><span class="v">14:22, today</span></div>
+          <div class="readout"><span class="k">Peak IMU reading</span><span class="v">2.8 g</span></div>
+          <div class="readout"><span class="k">LCD is showing</span><span class="v">"Pothole detected"</span></div>
+          <div class="readout"><span class="k">Network</span><span class="v">10.197.49.81</span></div>
+        </div>
+        <div class="col panel-card">
+          <h3>Get to it faster</h3>
+          <p class="hint">The three things people use most.</p>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <button class="btn btn-rust jump" data-tab="live">Open live dashboard</button>
+            <button class="btn btn-line jump" data-tab="report">Report a pothole</button>
+            <button class="btn btn-line jump" data-tab="location">See the map</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="live">
+      <div class="page-head">
+        <div class="tag">Direct from the device</div>
+        <h1>The node's own dashboard</h1>
+        <p>The ESP32 serves this itself, over your local Wi-Fi — so you'll only reach it while you're on the same network.</p>
+      </div>
+      <div class="live-box">
+        <div class="live-top">
+          <div>
+            <div class="hint" style="margin:0;">Node address</div>
+            <div class="live-ip">10.197.49.81</div>
+          </div>
+          <div>
+            <div class="hint" style="margin:0 0 6px;">Signal, last check</div>
+            <div class="signal"><i style="height:6px"></i><i style="height:11px"></i><i style="height:16px"></i><i style="height:22px"></i></div>
+          </div>
+        </div>
+        <a class="btn btn-rust" href="http://10.197.49.81" target="_blank" rel="noopener" style="margin-top:18px;">Open live dashboard</a>
+      </div>
+      <div class="panel-card">
+        <h3>If it doesn't load</h3>
+        <p class="hint">Three things to check, in order.</p>
+        <div class="checklist">
+          <div class="check-row"><div class="check-n">1</div><div><h4>Same Wi-Fi network</h4><p>Your phone or laptop needs to be on the same network as the ESP32, not mobile data.</p></div></div>
+          <div class="check-row"><div class="check-n">2</div><div><h4>IP hasn't shifted</h4><p>Router restarts can reassign it — check your router's connected-devices list for the ESP32's current address.</p></div></div>
+          <div class="check-row"><div class="check-n">3</div><div><h4>Node is powered</h4><p>The LCD should be lit and cycling readings. No display usually means a power or brownout issue at the box.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="location">
+      <div class="page-head">
+        <div class="tag">Field map</div>
+        <h1>Where it's been rough</h1>
+        <p>Tap a point for details — or scan the list below the map.</p>
+      </div>
+      <div class="map-wrap">
+        <svg class="map-svg" viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg">
+          <rect width="900" height="300" fill="var(--panel-2)"/>
+          <path d="M30 250 C 190 55, 360 290, 500 130 S 770 35, 870 80" stroke="var(--line)" stroke-width="24" fill="none" stroke-linecap="round"/>
+          <path d="M30 250 C 190 55, 360 290, 500 130 S 770 35, 870 80" stroke="var(--ink-dim)" stroke-width="1.5" stroke-dasharray="7 9" fill="none" opacity="0.45"/>
+          <g class="pin" data-name="Near the bus stop, KM 2.1" data-sev="High" data-time="Today, 14:22" data-fix="Repair scheduled Thursday">
+            <circle class="ring" cx="190" cy="112" r="16" fill="var(--brick)"/><circle cx="190" cy="112" r="8" fill="var(--brick)"/>
+          </g>
+          <g class="pin" data-name="Service road junction, KM 4.6" data-sev="Medium" data-time="Yesterday, 09:10" data-fix="Logged, awaiting inspection">
+            <circle class="ring" cx="365" cy="220" r="16" fill="var(--hazard)"/><circle cx="365" cy="220" r="8" fill="var(--hazard)"/>
+          </g>
+          <g class="pin" data-name="Bridge approach, KM 5.3" data-sev="Medium" data-time="2 days ago" data-fix="Logged, awaiting inspection">
+            <circle class="ring" cx="460" cy="168" r="16" fill="var(--hazard)"/><circle cx="460" cy="168" r="8" fill="var(--hazard)"/>
+          </g>
+          <g class="pin" data-name="Market road, KM 7.8" data-sev="Low" data-time="4 days ago" data-fix="Marked fixed, 21 Sep">
+            <circle class="ring" cx="630" cy="90" r="16" fill="var(--moss)"/><circle cx="630" cy="90" r="8" fill="var(--moss)"/>
+          </g>
+          <g class="pin" data-name="School zone, KM 9.0" data-sev="High" data-time="5 days ago" data-fix="Repair scheduled Thursday">
+            <circle class="ring" cx="760" cy="58" r="16" fill="var(--brick)"/><circle cx="760" cy="58" r="8" fill="var(--brick)"/>
+          </g>
+        </svg>
+        <div class="map-legend">
+          <div class="legend-item"><span class="swatch" style="background:var(--brick)"></span>High severity</div>
+          <div class="legend-item"><span class="swatch" style="background:var(--hazard)"></span>Medium severity</div>
+          <div class="legend-item"><span class="swatch" style="background:var(--moss)"></span>Low severity</div>
+        </div>
+      </div>
+      <div class="detail-panel" id="detailPanel">
+        <h4 id="dName"></h4>
+        <p id="dMeta"></p>
+        <p id="dFix" style="color:var(--ink); font-weight:500;"></p>
+      </div>
+      <div class="log-list" id="logList"></div>
+    </section>
+
+    <section class="panel" id="report">
+      <div class="page-head">
+        <div class="tag">Citizen input</div>
+        <h1>Seen a bad stretch the sensor missed?</h1>
+        <p>Add it here — location, how bad it is, and a photo if you've got one.</p>
+      </div>
+      <form id="reportForm">
+        <div class="field">
+          <label for="loc">Where is it?</label>
+          <div class="loc-row">
+            <input id="loc" type="text" placeholder="e.g. Near the ECR junction, Marakkanam" required>
+            <button type="button" class="btn btn-line" id="geoBtn">Use my location</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>How bad?</label>
+          <div class="seg" id="sevSeg">
+            <button type="button" class="seg-btn" data-sev="Low" aria-pressed="false">Low</button>
+            <button type="button" class="seg-btn" data-sev="Medium" aria-pressed="true">Medium</button>
+            <button type="button" class="seg-btn" data-sev="High" aria-pressed="false">High</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="desc">Anything else worth knowing?</label>
+          <textarea id="desc" placeholder="Depth, whether it's spread across the lane, nearby landmarks…"></textarea>
+        </div>
+        <div class="field">
+          <label>Photo (optional)</label>
+          <div class="photo-row">
+            <div class="photo-thumb" id="photoThumb"></div>
+            <input type="file" accept="image/*" id="photoInput" style="max-width:220px;">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-rust" style="align-self:flex-start;">Submit report</button>
+        <div class="toast" id="toast">Thanks — that's logged and the maintenance team can see it.</div>
+      </form>
+      <div class="reports-list" id="reportsList"></div>
+    </section>
+
+    <section class="panel" id="how">
+      <div class="page-head">
+        <div class="tag">Under the hood</div>
+        <h1>From a bump in the road to a logged report</h1>
+        <p>Five steps, most of them happening in under a second.</p>
+      </div>
+      <div class="flow">
+        <div class="flow-step"><div class="flow-icon">⚡</div><p>Vibration sensor feels the impact</p></div>
+        <div class="flow-arrow">›</div>
+        <div class="flow-step"><div class="flow-icon">📐</div><p>IMU checks it's really a pothole</p></div>
+        <div class="flow-arrow">›</div>
+        <div class="flow-step"><div class="flow-icon">🧠</div><p>ESP32 scores severity</p></div>
+        <div class="flow-arrow">›</div>
+        <div class="flow-step"><div class="flow-icon">📟</div><p>LCD + dashboard update</p></div>
+        <div class="flow-arrow">›</div>
+        <div class="flow-step"><div class="flow-icon">🗺️</div><p>Pinned to the route map</p></div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-body"><h3>Vibration is sensed</h3><p>A vibration sensor on the chassis picks up the jolt as a wheel crosses a pothole — the same kind of signal a passenger would feel, just measured.</p></div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body"><h3>The IMU rules out false alarms</h3><p>Speed bumps, hard turns, and gear changes shake the vehicle too. The IMU's acceleration signature tells those apart from an actual pothole hit.</p></div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body"><h3>The ESP32 does the thinking</h3><p>It timestamps the event, estimates severity from peak acceleration, and decides what the LCD should show right then.</p></div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-body"><h3>The dashboard updates over Wi-Fi</h3><p>The node hosts its own page on the local network, so anyone connected can watch readings come in live — no cloud round-trip.</p></div></div>
+        <div class="step"><div class="step-n">5</div><div class="step-body"><h3>This layer adds the map and the reports</h3><p>Detections get pinned to the route, and people can add what the sensor hasn't covered yet — severity is what decides what gets fixed first.</p></div></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+document.querySelectorAll('.nav-btn, .jump').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+function showTab(tab){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id===tab));
+  window.scrollTo({top:0});
+}
+
+const themeBtn=document.getElementById('themeBtn');
+themeBtn.addEventListener('click',()=>{
+  const cur=document.documentElement.dataset.theme;
+  const isDark = cur ? cur==='dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.dataset.theme = isDark ? 'light' : 'dark';
+  themeBtn.textContent = isDark ? 'Switch to dark view' : 'Switch to light view';
+});
+
+const pins=document.querySelectorAll('.pin');
+const detailPanel=document.getElementById('detailPanel');
+const dName=document.getElementById('dName'), dMeta=document.getElementById('dMeta'), dFix=document.getElementById('dFix');
+const logList=document.getElementById('logList');
+function paintPin(g){
+  pins.forEach(p=>p.classList.remove('sel'));
+  g.classList.add('sel');
+  dName.textContent=g.dataset.name;
+  dMeta.textContent=g.dataset.sev+' severity · '+g.dataset.time;
+  dFix.textContent=g.dataset.fix;
+  detailPanel.classList.add('show');
+}
+pins.forEach(g=>g.addEventListener('click',()=>paintPin(g)));
+function renderLog(){
+  logList.innerHTML='';
+  pins.forEach(g=>{
+    const row=document.createElement('div');
+    row.className='log-row';
+    row.innerHTML=`<span>${g.dataset.name}</span><span class="sev sev-${g.dataset.sev.toLowerCase()}">${g.dataset.sev}</span>`;
+    row.addEventListener('click',()=>{paintPin(g); detailPanel.scrollIntoView({behavior:'smooth', block:'nearest'});});
+    logList.appendChild(row);
+  });
+}
+renderLog();
+
+const segBtns=document.querySelectorAll('#sevSeg .seg-btn');
+let currentSev='Medium';
+segBtns.forEach(b=>b.addEventListener('click',()=>{
+  segBtns.forEach(x=>x.setAttribute('aria-pressed','false'));
+  b.setAttribute('aria-pressed','true');
+  currentSev=b.dataset.sev;
+}));
+
+const geoBtn=document.getElementById('geoBtn');
+geoBtn.addEventListener('click',()=>{
+  if(!navigator.geolocation){geoBtn.textContent='Not supported here'; return;}
+  geoBtn.disabled=true; geoBtn.textContent='Locating…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      document.getElementById('loc').value = pos.coords.latitude.toFixed(5)+', '+pos.coords.longitude.toFixed(5);
+      geoBtn.disabled=false; geoBtn.textContent='Use my location';
+    },
+    ()=>{ geoBtn.disabled=false; geoBtn.textContent='Location unavailable'; },
+    {timeout:8000}
+  );
+});
+
+let photoURL=null;
+document.getElementById('photoInput').addEventListener('change', e=>{
+  const f=e.target.files[0];
+  if(!f) return;
+  photoURL=URL.createObjectURL(f);
+  document.getElementById('photoThumb').style.backgroundImage=`url(${photoURL})`;
+});
+
+const reports=[];
+const form=document.getElementById('reportForm');
+const toast=document.getElementById('toast');
+const rList=document.getElementById('reportsList');
+form.addEventListener('submit', e=>{
+  e.preventDefault();
+  const loc=document.getElementById('loc').value.trim();
+  if(!loc) return;
+  reports.unshift({loc, sev:currentSev, photo:photoURL});
+  rList.innerHTML = reports.map(r=>`
+    <div class="report-item">
+      <div class="report-thumb" style="${r.photo?`background-image:url(${r.photo})`:''}"></div>
+      <div class="rtext">${r.loc} <span class="sev sev-${r.sev.toLowerCase()}" style="margin-left:6px;">${r.sev}</span></div>
+      <div class="rtime">just now</div>
+    </div>`).join('');
+  toast.classList.add('show');
+  form.reset();
+  document.getElementById('photoThumb').style.backgroundImage='';
+  photoURL=null;
+  setTimeout(()=>toast.classList.remove('show'),3500);
+});
+</script>
+</body>
+</html>
