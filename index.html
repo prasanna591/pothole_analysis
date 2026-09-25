@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>RoadPulse — Marakkanam Route Monitor</title>
+<title>RoadPulse — Villupuram Route Monitor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" rel="stylesheet">
 <style>
 :root{
   --paper:#EDEFEA; --panel:#FFFFFF; --panel-2:#F5F6F1; --line:#D8DAD1;
@@ -15,19 +16,20 @@
   --hazard:#B8860B; --hazard-soft:#F6E9C4;
   --brick:#A23B2E; --brick-soft:#F3D9D4;
   --moss:#3F7256; --moss-soft:#DCEAE0;
+  --steel:#41618A; --steel-soft:#E3EAF3;
   box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
     --paper:#191B1E; --panel:#212429; --panel-2:#262931; --line:#34383F;
     --ink:#ECE9DF; --ink-dim:#9A9F9A;
-    --rust-soft:#3B2415; --hazard-soft:#392C0D; --brick-soft:#331714; --moss-soft:#132A20;
+    --rust-soft:#3B2415; --hazard-soft:#392C0D; --brick-soft:#331714; --moss-soft:#132A20; --steel-soft:#15202E;
   }
 }
 :root[data-theme="dark"]{
   --paper:#191B1E; --panel:#212429; --panel-2:#262931; --line:#34383F;
   --ink:#ECE9DF; --ink-dim:#9A9F9A;
-  --rust-soft:#3B2415; --hazard-soft:#392C0D; --brick-soft:#331714; --moss-soft:#132A20;
+  --rust-soft:#3B2415; --hazard-soft:#392C0D; --brick-soft:#331714; --moss-soft:#132A20; --steel-soft:#15202E;
 }
 *{box-sizing:inherit;}
 html,body{height:100%;margin:0;}
@@ -59,7 +61,7 @@ nav{display:flex; flex-direction:column; gap:2px;}
 .theme-btn{align-self:flex-start; background:var(--panel-2); border:1px solid var(--line); border-radius:20px; padding:6px 12px; font-size:12.5px; color:var(--ink-dim); cursor:pointer; font-family:inherit;}
 .theme-btn:hover{color:var(--ink);}
 
-main{flex:1; min-width:0; padding:30px 36px 60px; max-width:1060px;}
+main{flex:1; min-width:0; padding:30px 36px 60px; max-width:1160px;}
 .panel{display:none;}
 .panel.active{display:block; animation:rise .35s ease;}
 @keyframes rise{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
@@ -68,6 +70,9 @@ main{flex:1; min-width:0; padding:30px 36px 60px; max-width:1060px;}
 .tag{display:inline-block; font-size:12px; font-weight:600; color:var(--rust); padding:3px 0; border-bottom:2px solid var(--rust); margin-bottom:10px;}
 .page-head h1{font-size:28px; margin-bottom:8px;}
 .page-head p{color:var(--ink-dim); margin:0 0 26px; max-width:58ch;}
+.head-actions{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+.head-actions .btn{padding:9px 14px; font-size:13px;}
+.head-actions .chip{padding:8px 13px; font-size:12.5px;}
 
 .grid{display:grid; grid-template-columns:1.1fr 1fr 1fr; gap:14px; margin-bottom:18px;}
 .card{background:var(--panel); border:1px solid var(--line); border-radius:9px; padding:18px;}
@@ -76,8 +81,10 @@ main{flex:1; min-width:0; padding:30px 36px 60px; max-width:1060px;}
 .stat-value.rust{color:var(--rust);} .stat-value.moss{color:var(--moss);} .stat-value.brick{color:var(--brick);}
 .stat-delta{font-size:12px; color:var(--ink-dim); margin-top:4px;}
 .bars{display:flex; align-items:flex-end; gap:6px; height:44px; margin-top:2px;}
-.bars i{flex:1; background:var(--rust-soft); border-radius:2px 2px 0 0; position:relative;}
-.bars i b{position:absolute; inset:0; background:var(--rust); border-radius:2px 2px 0 0;}
+.bars i{flex:1; background:var(--rust-soft); border-radius:2px 2px 0 0; position:relative; min-height:4px;}
+.bars i b{position:absolute; inset:0; background:var(--rust); border-radius:2px 2px 0 0; opacity:0;}
+.bars i.today b{opacity:1;}
+.bars i.today{outline:1px dashed var(--rust); outline-offset:1px;}
 .bars-labels{display:flex; gap:6px; margin-top:5px;}
 .bars-labels span{flex:1; text-align:center; font-size:10px; color:var(--ink-dim);}
 
@@ -90,7 +97,7 @@ main{flex:1; min-width:0; padding:30px 36px 60px; max-width:1060px;}
 .readout{display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
 .readout:last-child{border-bottom:none;}
 .readout .k{color:var(--ink-dim);}
-.readout .v{font-weight:600;}
+.readout .v{font-weight:600; text-align:right;}
 
 .btn{display:inline-flex; align-items:center; gap:8px; padding:11px 18px; border-radius:8px; border:none; font:inherit; font-weight:600; font-size:14px; cursor:pointer; text-decoration:none;}
 .btn-rust{background:var(--rust); color:#FFF6EE;}
@@ -104,6 +111,14 @@ main{flex:1; min-width:0; padding:30px 36px 60px; max-width:1060px;}
 .live-ip{font-family:'Fraunces',serif; font-size:20px; margin:10px 0 4px;}
 .signal{display:flex; gap:3px; align-items:flex-end; height:22px;}
 .signal i{width:5px; background:var(--moss); border-radius:1px;}
+.imu{background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:14px; margin-top:16px;}
+.imu-head{display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:12.5px; color:var(--ink-dim); margin-bottom:8px;}
+.imu-head b{color:var(--ink); font-family:'Fraunces',serif; font-size:15px; font-weight:600;}
+#imuCanvas{width:100%; height:100px; display:block; background:var(--panel); border-radius:6px;}
+.live-actions{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;}
+.node-status{font-size:12.5px; color:var(--ink-dim); margin-top:12px;}
+.node-status b{color:var(--moss); font-weight:600;}
+
 .checklist{display:flex; flex-direction:column; gap:0;}
 .check-row{display:flex; gap:12px; padding:14px 0; border-bottom:1px solid var(--line);}
 .check-row:last-child{border-bottom:none;}
@@ -111,25 +126,57 @@ main{flex:1; min-width:0; padding:30px 36px 60px; max-width:1060px;}
 .check-row h4{margin:0 0 3px; font-size:14px;}
 .check-row p{margin:0; font-size:13px; color:var(--ink-dim);}
 
-.map-wrap{background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden;}
-.map-svg{display:block; width:100%; height:auto; background:var(--panel-2); cursor:default;}
-.pin{cursor:pointer;}
-.pin circle.ring{opacity:0; transition:opacity .15s;}
-.pin:hover circle.ring, .pin.sel circle.ring{opacity:0.35;}
-.map-legend{display:flex; gap:18px; padding:12px 18px; border-top:1px solid var(--line); flex-wrap:wrap;}
-.legend-item{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-dim);}
-.swatch{width:9px;height:9px;border-radius:50%;}
+.map-wrap{position:relative; background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+#potholeMap{width:100%; height:420px; background:var(--panel-2);}
+.map-token{position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:28px; text-align:center; background:var(--panel-2); color:var(--ink-dim); font-size:13.5px;}
+.map-token code{background:var(--panel); border:1px solid var(--line); border-radius:5px; padding:2px 7px; color:var(--rust); font-size:12.5px;}
+.map-token.hide{display:none;}
+.legend{display:flex; gap:8px; padding:12px 18px; border-top:1px solid var(--line); flex-wrap:wrap; align-items:center;}
+.legend .hint{margin:0 10px 0 0;}
+.chip{display:inline-flex; align-items:center; gap:7px; padding:6px 12px; border-radius:20px; border:1px solid var(--line); background:var(--panel); color:var(--ink-dim); font:inherit; font-size:12.5px; font-weight:600; cursor:pointer;}
+.chip.on{border-color:var(--ink); color:var(--ink); background:var(--panel-2);}
+.chip .swatch{width:8px; height:8px; border-radius:50%;}
+.chip.all{color:var(--ink-dim);}
+.chip.all.on{background:var(--rust); border-color:var(--rust); color:#FFF6EE;}
+.node-switch{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+.node-switch .chip.on{border-color:var(--rust); color:var(--rust); background:var(--rust-soft);}
+.spec{font-size:11px; color:var(--ink-dim);}
+.priority-item{display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--line);}
+.priority-item:last-child{border-bottom:none;}
+.p-name{flex:1; min-width:0; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.p-name small{display:block; color:var(--ink-dim); font-size:11.5px; white-space:normal;}
+.priority-bar{width:76px; height:6px; background:var(--panel-2); border:1px solid var(--line); border-radius:3px; overflow:hidden; flex:0 0 auto;}
+.priority-bar i{display:block; height:100%; background:var(--rust); border-radius:3px;}
+.p-score{font-family:'Fraunces',serif; font-weight:600; font-size:14px; width:28px; text-align:right; color:var(--ink);}
+.score{font-size:11.5px; color:var(--ink-dim); font-weight:500;}
 .detail-panel{margin-top:14px; padding:16px 18px; border-radius:9px; background:var(--panel); border:1px solid var(--line); display:none;}
 .detail-panel.show{display:block;}
 .detail-panel h4{font-size:15px; margin-bottom:4px;}
 .detail-panel p{margin:0 0 10px; color:var(--ink-dim); font-size:13.5px;}
+.pin-pop{font-family:'Inter',sans-serif; font-size:13px; max-width:240px;}
+.pin-pop h4{margin:0 0 6px; font-family:'Fraunces',serif; font-size:15px;}
+.pin-pop p{margin:2px 0; color:#555;}
+.pin-pop .row-inline{display:flex; gap:6px; flex-wrap:wrap; margin-top:7px;}
+.mapboxgl-popup-content{border-radius:9px;}
+
 .log-list{margin-top:14px; display:flex; flex-direction:column; gap:8px;}
 .log-row{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 14px; background:var(--panel); border:1px solid var(--line); border-radius:8px; font-size:13.5px; cursor:pointer;}
 .log-row:hover{border-color:var(--rust);}
+.log-main{flex:1; min-width:0;}
+.log-sub{font-size:11.5px; color:var(--ink-dim); margin-top:2px;}
+.log-meta{display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex:0 0 auto;}
 .sev{padding:2px 9px; border-radius:20px; font-size:11.5px; font-weight:600;}
 .sev-high{background:var(--brick-soft); color:var(--brick);}
 .sev-medium{background:var(--hazard-soft); color:var(--hazard);}
 .sev-low{background:var(--moss-soft); color:var(--moss);}
+.status{display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:600;}
+.st-reported{background:var(--rust-soft); color:var(--rust);}
+.st-awaiting{background:var(--hazard-soft); color:var(--hazard);}
+.st-repair{background:var(--steel-soft); color:var(--steel);}
+.st-fixed{background:var(--moss-soft); color:var(--moss);}
+.mini-btn{padding:5px 10px; border-radius:6px; border:1px solid var(--line); background:transparent; color:var(--ink-dim); font:inherit; font-size:12px; cursor:pointer;}
+.mini-btn:hover{color:var(--rust); border-color:var(--rust);}
+.mini-btn:disabled{opacity:0.4; cursor:default;}
 
 form{display:flex; flex-direction:column; gap:16px; max-width:540px;}
 label{font-size:13px; color:var(--ink-dim); display:block; margin-bottom:6px;}
@@ -146,7 +193,7 @@ input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
 .photo-thumb{width:56px;height:56px;border-radius:7px; background:var(--panel-2); border:1px dashed var(--line); background-size:cover; background-position:center; flex:0 0 auto;}
 .toast{display:none; margin-top:2px; padding:12px 14px; border-radius:8px; background:var(--moss-soft); color:var(--moss); font-size:13.5px; font-weight:500;}
 .toast.show{display:block;}
-.reports-list{margin-top:24px; display:flex; flex-direction:column; gap:8px; max-width:560px;}
+.reports-list{margin-top:24px; display:flex; flex-direction:column; gap:8px; max-width:640px;}
 .report-item{display:flex; align-items:center; gap:12px; padding:11px 14px; background:var(--panel); border:1px solid var(--line); border-radius:8px;}
 .report-thumb{width:38px;height:38px;border-radius:6px;background:var(--panel-2); background-size:cover; background-position:center; flex:0 0 auto;}
 .report-item .rtext{flex:1; font-size:13.5px;}
@@ -175,6 +222,7 @@ input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
   .grid{grid-template-columns:1fr;}
   .row{flex-direction:column;}
   .live-top{flex-direction:column;}
+  #potholeMap{height:300px;}
 }
 </style>
 </head>
@@ -198,7 +246,7 @@ input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
       <button class="nav-btn" data-tab="how"><span class="nav-icon">◐</span>How it works</button>
     </nav>
     <div class="rail-foot">
-      <div class="status-line"><b>ESP32-01</b> · online 6d 4h</div>
+      <div class="status-line"><b id="railNodes">ESP32-01</b> · on the ECR service stretch</div>
       <button class="theme-btn" id="themeBtn">Switch to dark view</button>
     </div>
   </aside>
@@ -209,29 +257,30 @@ input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
       <div class="page-head">
         <div class="tag">This week's readings</div>
         <h1>How the road's been treating people</h1>
-        <p>Readings from the vibration-and-IMU node on the ECR service stretch, plus what's been reported by hand.</p>
+        <p>Readings from the vibration-and-IMU node on the ECR service stretch, plus what's been reported by hand. Everything below updates live and is stored locally.</p>
       </div>
       <div class="grid">
         <div class="card">
           <div class="stat-label">Detections, last 7 days</div>
-          <div class="bars">
-            <i style="height:38%"></i><i style="height:52%"></i><i style="height:30%"></i>
-            <i style="height:70%"></i><i style="height:44%"></i><i style="height:60%"><b style="height:100%"></b></i><i style="height:26%"></i>
-          </div>
+          <div class="bars" id="trafficBars"></div>
           <div class="bars-labels"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
-          <div class="stat-delta">7 total, up from 5 last week</div>
+          <div class="stat-delta" id="trafficDelta"></div>
         </div>
         <div class="card"><div class="stat-label">Node uptime</div><div class="stat-value moss">99.2%</div><div class="stat-delta">Last restart 6 days ago</div></div>
-        <div class="card"><div class="stat-label">Awaiting repair</div><div class="stat-value brick">3</div><div class="stat-delta">1 flagged high severity</div></div>
+        <div class="card">
+          <div class="stat-label">Awaiting repair</div>
+          <div class="stat-value brick" id="awaitCount">—</div>
+          <div class="stat-delta" id="awaitDelta"></div>
+        </div>
       </div>
       <div class="row">
         <div class="col panel-card">
-          <h3>What the node is seeing right now</h3>
+          <h3><span id="ovNodeLabel">ESP32-01 · ECR service road</span> is seeing right now</h3>
           <p class="hint">Pulled from the ESP32 + IMU readout.</p>
-          <div class="readout"><span class="k">Last event</span><span class="v">14:22, today</span></div>
-          <div class="readout"><span class="k">Peak IMU reading</span><span class="v">2.8 g</span></div>
-          <div class="readout"><span class="k">LCD is showing</span><span class="v">"Pothole detected"</span></div>
-          <div class="readout"><span class="k">Network</span><span class="v">10.197.49.81</span></div>
+          <div class="readout"><span class="k">Last event</span><span class="v" id="liveLastEvent">—</span></div>
+          <div class="readout"><span class="k">Peak IMU reading</span><span class="v" id="livePeak">2.80 g</span></div>
+          <div class="readout"><span class="k">LCD is showing</span><span class="v" id="liveLcd">Monitoring…</span></div>
+          <div class="readout"><span class="k">Network</span><span class="v" id="liveNet">10.197.49.81</span></div>
         </div>
         <div class="col panel-card">
           <h3>Get to it faster</h3>
@@ -239,8 +288,15 @@ input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
           <div style="display:flex; flex-direction:column; gap:10px;">
             <button class="btn btn-rust jump" data-tab="live">Open live dashboard</button>
             <button class="btn btn-line jump" data-tab="report">Report a pothole</button>
-            <button class="btn btn-line jump" data-tab="location">See the map</button>
-          </div>
+<button class="btn btn-line jump" data-tab="location">See the map</button>
+        </div>
+      </div>
+      </div>
+      <div class="row">
+        <div class="col panel-card">
+          <h3>Repair priority queue</h3>
+          <p class="hint">Score = severity × reporting × age. Ranked so the crew fixes what matters first.</p>
+          <div id="priorityList"></div>
         </div>
       </div>
     </section>
@@ -249,20 +305,32 @@ input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
       <div class="page-head">
         <div class="tag">Direct from the device</div>
         <h1>The node's own dashboard</h1>
-        <p>The ESP32 serves this itself, over your local Wi-Fi — so you'll only reach it while you're on the same network.</p>
+        <p>The ESP32 serves this itself over your local Wi-Fi. If it's reachable we poll it; otherwise you get a live demo stream so the panel still moves.</p>
       </div>
+      <div class="node-switch" id="nodeSwitch"></div>
       <div class="live-box">
         <div class="live-top">
           <div>
             <div class="hint" style="margin:0;">Node address</div>
-            <div class="live-ip">10.197.49.81</div>
+            <div class="live-ip" id="liveIp">10.197.49.81</div>
           </div>
           <div>
             <div class="hint" style="margin:0 0 6px;">Signal, last check</div>
-            <div class="signal"><i style="height:6px"></i><i style="height:11px"></i><i style="height:16px"></i><i style="height:22px"></i></div>
+            <div class="signal" id="signalBars"><i style="height:6px"></i><i style="height:11px"></i><i style="height:16px"></i><i style="height:22px"></i></div>
           </div>
         </div>
-        <a class="btn btn-rust" href="http://10.197.49.81" target="_blank" rel="noopener" style="margin-top:18px;">Open live dashboard</a>
+        <div class="node-status" id="nodeStatus">Checking for the node…</div>
+        <div class="imu">
+          <div class="imu-head">
+            <span>IMU acceleration, streaming</span>
+            <span><b id="imuNow">0.62 g</b> · peak <span id="imuPeak">2.80 g</span> · est. <span id="imuSpeed">42</span> km/h</span>
+          </div>
+          <canvas id="imuCanvas" width="600" height="100"></canvas>
+        </div>
+        <div class="live-actions">
+          <a class="btn btn-rust" id="liveLink" href="http://10.197.49.81" target="_blank" rel="noopener">Open live dashboard</a>
+          <button class="btn btn-line" id="simBtn">Simulate a detection</button>
+        </div>
       </div>
       <div class="panel-card">
         <h3>If it doesn't load</h3>
@@ -279,38 +347,32 @@ input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
       <div class="page-head">
         <div class="tag">Field map</div>
         <h1>Where it's been rough</h1>
-        <p>Tap a point for details — or scan the list below the map.</p>
+        <p>Every point on the map is a real entry — sensor or citizen. Click a pin for details, filter by severity, and push repairs through their status.</p>
+        <div class="head-actions">
+          <button class="chip on" id="sortNewest">Newest</button>
+          <button class="chip" id="sortPriority">By priority</button>
+          <button class="btn btn-line" id="exportBtn">⇩ Export CSV</button>
+          <button class="btn btn-line" id="resetBtn">Reset demo data</button>
+        </div>
       </div>
       <div class="map-wrap">
-        <svg class="map-svg" viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg">
-          <rect width="900" height="300" fill="var(--panel-2)"/>
-          <path d="M30 250 C 190 55, 360 290, 500 130 S 770 35, 870 80" stroke="var(--line)" stroke-width="24" fill="none" stroke-linecap="round"/>
-          <path d="M30 250 C 190 55, 360 290, 500 130 S 770 35, 870 80" stroke="var(--ink-dim)" stroke-width="1.5" stroke-dasharray="7 9" fill="none" opacity="0.45"/>
-          <g class="pin" data-name="Near the bus stop, KM 2.1" data-sev="High" data-time="Today, 14:22" data-fix="Repair scheduled Thursday">
-            <circle class="ring" cx="190" cy="112" r="16" fill="var(--brick)"/><circle cx="190" cy="112" r="8" fill="var(--brick)"/>
-          </g>
-          <g class="pin" data-name="Service road junction, KM 4.6" data-sev="Medium" data-time="Yesterday, 09:10" data-fix="Logged, awaiting inspection">
-            <circle class="ring" cx="365" cy="220" r="16" fill="var(--hazard)"/><circle cx="365" cy="220" r="8" fill="var(--hazard)"/>
-          </g>
-          <g class="pin" data-name="Bridge approach, KM 5.3" data-sev="Medium" data-time="2 days ago" data-fix="Logged, awaiting inspection">
-            <circle class="ring" cx="460" cy="168" r="16" fill="var(--hazard)"/><circle cx="460" cy="168" r="8" fill="var(--hazard)"/>
-          </g>
-          <g class="pin" data-name="Market road, KM 7.8" data-sev="Low" data-time="4 days ago" data-fix="Marked fixed, 21 Sep">
-            <circle class="ring" cx="630" cy="90" r="16" fill="var(--moss)"/><circle cx="630" cy="90" r="8" fill="var(--moss)"/>
-          </g>
-          <g class="pin" data-name="School zone, KM 9.0" data-sev="High" data-time="5 days ago" data-fix="Repair scheduled Thursday">
-            <circle class="ring" cx="760" cy="58" r="16" fill="var(--brick)"/><circle cx="760" cy="58" r="8" fill="var(--brick)"/>
-          </g>
-        </svg>
-        <div class="map-legend">
-          <div class="legend-item"><span class="swatch" style="background:var(--brick)"></span>High severity</div>
-          <div class="legend-item"><span class="swatch" style="background:var(--hazard)"></span>Medium severity</div>
-          <div class="legend-item"><span class="swatch" style="background:var(--moss)"></span>Low severity</div>
+        <div class="map-token hide" id="mapToken">
+          <b>Map needs a Mapbox token</b>
+          <span>Paste your public token in the <code>MAPBOX_TOKEN</code> value at the top of the script to switch this from the fallback view to the live road map.</span>
+        </div>
+        <div id="potholeMap"></div>
+        <div class="legend">
+          <span class="hint">Filter pins:</span>
+          <button class="chip on" data-sev="High"><span class="swatch" style="background:var(--brick)"></span>High</button>
+          <button class="chip on" data-sev="Medium"><span class="swatch" style="background:var(--hazard)"></span>Medium</button>
+          <button class="chip on" data-sev="Low"><span class="swatch" style="background:var(--moss)"></span>Low</button>
+          <button class="chip all" id="chipAll">All</button>
         </div>
       </div>
       <div class="detail-panel" id="detailPanel">
         <h4 id="dName"></h4>
         <p id="dMeta"></p>
+        <p id="dSpec" style="color:var(--ink); font-weight:600;"></p>
         <p id="dFix" style="color:var(--ink); font-weight:500;"></p>
       </div>
       <div class="log-list" id="logList"></div>
@@ -320,7 +382,7 @@ input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
       <div class="page-head">
         <div class="tag">Citizen input</div>
         <h1>Seen a bad stretch the sensor missed?</h1>
-        <p>Add it here — location, how bad it is, and a photo if you've got one.</p>
+        <p>Add it here — it lands on the map instantly, gets a status, and can be pushed through to "Fixed" as repairs happen.</p>
       </div>
       <form id="reportForm">
         <div class="field">
@@ -350,7 +412,7 @@ input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
           </div>
         </div>
         <button type="submit" class="btn btn-rust" style="align-self:flex-start;">Submit report</button>
-        <div class="toast" id="toast">Thanks — that's logged and the maintenance team can see it.</div>
+        <div class="toast" id="toast">Thanks — it's on the map now. The maintenance team can see it.</div>
       </form>
       <div class="reports-list" id="reportsList"></div>
     </section>
@@ -359,7 +421,7 @@ input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
       <div class="page-head">
         <div class="tag">Under the hood</div>
         <h1>From a bump in the road to a logged report</h1>
-        <p>Five steps, most of them happening in under a second.</p>
+        <p>Five steps, most of them happening in under a second — then every entry moves through its status until it's fixed.</p>
       </div>
       <div class="flow">
         <div class="flow-step"><div class="flow-icon">⚡</div><p>Vibration sensor feels the impact</p></div>
@@ -370,112 +432,524 @@ input:focus,textarea:focus{outline:2px solid var(--rust); outline-offset:1px;}
         <div class="flow-arrow">›</div>
         <div class="flow-step"><div class="flow-icon">📟</div><p>LCD + dashboard update</p></div>
         <div class="flow-arrow">›</div>
-        <div class="flow-step"><div class="flow-icon">🗺️</div><p>Pinned to the route map</p></div>
+        <div class="flow-step"><div class="flow-icon">🗺️</div><p>Pinned to the Mapbox map</p></div>
+        <div class="flow-arrow">›</div>
+        <div class="flow-step"><div class="flow-icon">✔</div><p>Tracked to repair, then fixed</p></div>
       </div>
       <div class="steps">
         <div class="step"><div class="step-n">1</div><div class="step-body"><h3>Vibration is sensed</h3><p>A vibration sensor on the chassis picks up the jolt as a wheel crosses a pothole — the same kind of signal a passenger would feel, just measured.</p></div></div>
         <div class="step"><div class="step-n">2</div><div class="step-body"><h3>The IMU rules out false alarms</h3><p>Speed bumps, hard turns, and gear changes shake the vehicle too. The IMU's acceleration signature tells those apart from an actual pothole hit.</p></div></div>
         <div class="step"><div class="step-n">3</div><div class="step-body"><h3>The ESP32 does the thinking</h3><p>It timestamps the event, estimates severity from peak acceleration, and decides what the LCD should show right then.</p></div></div>
-        <div class="step"><div class="step-n">4</div><div class="step-body"><h3>The dashboard updates over Wi-Fi</h3><p>The node hosts its own page on the local network, so anyone connected can watch readings come in live — no cloud round-trip.</p></div></div>
-        <div class="step"><div class="step-n">5</div><div class="step-body"><h3>This layer adds the map and the reports</h3><p>Detections get pinned to the route, and people can add what the sensor hasn't covered yet — severity is what decides what gets fixed first.</p></div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-body"><h3>The dashboard updates over Wi-Fi</h3><p>The node hosts its own page on the local network, so anyone connected can watch readings come in live — this page polls it when it's reachable.</p></div></div>
+        <div class="step"><div class="step-n">5</div><div class="step-body"><h3>Everything lands on the Mapbox map</h3><p>Sensor detections and citizen reports become pins colored by severity. Filter them, click them, and scan the ledger below — data also exports to CSV for the department.</p></div></div>
+        <div class="step"><div class="step-n">6</div><div class="step-body"><h3>Entries get a life of their own</h3><p>Each report moves through Reported → Awaiting inspection → Repair scheduled → Fixed. Push them along as work happens, and the map turns them grey when done.</p></div></div>
       </div>
     </section>
 
   </main>
 </div>
 
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
 <script>
-document.querySelectorAll('.nav-btn, .jump').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+// Paste your public Mapbox token here (https://account.mapbox.com/access-tokens)
+const MAPBOX_TOKEN = 'YOUR_MAPBOX_PUBLIC_TOKEN';
+const MAP_CENTER = [79.9470, 12.2120];
+const MAP_ZOOM = 12;
+const VREF = 40;
+
+const NODES = [
+  {id:'n1', label:'ESP32-01', route:'ECR service road',  ip:'10.197.49.81', api:'http://10.197.49.81/api/status', lng:79.9470, lat:12.2120},
+  {id:'n2', label:'ESP32-02', route:'Market road',       ip:'10.197.49.82', api:'http://10.197.49.82/api/status', lng:79.9535, lat:12.2220},
+  {id:'n3', label:'ESP32-03', route:'School zone, KM 9', ip:'10.197.49.83', api:'http://10.197.49.83/api/status', lng:79.9600, lat:12.2285},
+];
+let nodeIdx = 0;
+
+const now = () => Date.now();
+const fmtTime = ts => {
+  const d = new Date(ts), n2 = new Date();
+  const hh = d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+  if (d.toDateString() === n2.toDateString()) return 'Today, ' + hh;
+  if (d.toDateString() === new Date(n2 - 864e5).toDateString()) return 'Yesterday, ' + hh;
+  const days = Math.round((n2 - ts) / 864e5);
+  return days + (days === 1 ? ' day ago' : ' days ago');
+};
+
+const SEEDS = [
+  {id:'d1', name:'Near the bus stop, KM 2.1',  node:'n1', sev:'High',   g:3.10, speed:42, hits:3, status:'Repair scheduled',     note:'Repair scheduled Thursday', lng:79.9385, lat:12.1950, hours:5},
+  {id:'d2', name:'Service road junction, KM 4.6', node:'n1', sev:'Medium', g:2.10, speed:38, hits:1, status:'Awaiting inspection', note:'Logged, awaiting inspection', lng:79.9440, lat:12.2050, hours:36},
+  {id:'d3', name:'Bridge approach, KM 5.3',     node:'n1', sev:'Medium', g:1.90, speed:45, hits:2, status:'Awaiting inspection', note:'Logged, awaiting inspection', lng:79.9470, lat:12.2100, hours:48},
+  {id:'d4', name:'Market road, KM 7.8',         node:'n2', sev:'Low',    g:1.20, speed:34, hits:1, status:'Fixed',                note:'Marked fixed',                lng:79.9535, lat:12.2220, hours:96},
+  {id:'d5', name:'School zone, KM 9.0',         node:'n3', sev:'High',   g:2.90, speed:50, hits:2, status:'Repair scheduled',     note:'Repair scheduled Thursday',  lng:79.9600, lat:12.2285, hours:120},
+];
+
+const seedDB = () => SEEDS.map(s => ({source:'node', ts: now() - s.hours*3600e3, ...s}));
+const loadDB = () => {
+  try { const raw = localStorage.getItem('rp_db'); if (raw) return JSON.parse(raw); } catch (e) {}
+  const db = seedDB(); saveDB(db); return db;
+};
+const saveDB = db => { try { localStorage.setItem('rp_db', JSON.stringify(db)); } catch (e) {} };
+
+let db = loadDB();
+
+const loadTraffic = () => {
+  try { const raw = localStorage.getItem('rp_traffic'); if (raw) return JSON.parse(raw); } catch (e) {}
+  return [3,5,2,6,4,7,1];
+};
+let traffic = loadTraffic();
+const saveTraffic = () => { try { localStorage.setItem('rp_traffic', JSON.stringify(traffic)); } catch (e) {} };
+const todayIdx = () => (new Date().getDay() + 6) % 7;
+
+const NEXT = {'Reported':'Awaiting inspection', 'Awaiting inspection':'Repair scheduled', 'Repair scheduled':'Fixed'};
+
+const nodeOf = n => NODES.find(x => x.id === n) || NODES[0];
+const SEV_W = {High:3, Medium:2, Low:1};
+const severityFrom = (g, speed) => {
+  const gNorm = g * Math.pow(VREF / Math.max(speed || VREF, 5), 2);
+  if (gNorm >= 2.4) return 'High';
+  if (gNorm >= 1.4) return 'Medium';
+  return 'Low';
+};
+const priorityOf = p => {
+  if (p.status === 'Fixed') return 0;
+  const ageDays = (now() - p.ts) / 864e5;
+  return SEV_W[p.sev] * (0.5 + Math.min(p.hits || 1, 5)) * (1 + Math.min(ageDays / 14, 1));
+};
+const gSpec = p => (p.g ? p.g.toFixed(2) + ' g @ ' + Math.round(p.speed || 0) + ' km/h' : '');
+
+document.querySelectorAll('.nav-btn, .jump').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 function showTab(tab){
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
-  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id===tab));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === tab));
   window.scrollTo({top:0});
+  if (tab === 'location' && map) setTimeout(() => map.resize(), 120);
 }
 
-const themeBtn=document.getElementById('themeBtn');
-themeBtn.addEventListener('click',()=>{
-  const cur=document.documentElement.dataset.theme;
-  const isDark = cur ? cur==='dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-  document.documentElement.dataset.theme = isDark ? 'light' : 'dark';
-  themeBtn.textContent = isDark ? 'Switch to dark view' : 'Switch to light view';
+const themeBtn = document.getElementById('themeBtn');
+const isDarkNow = () => {
+  const cur = document.documentElement.dataset.theme;
+  return cur ? cur === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+};
+themeBtn.addEventListener('click', () => {
+  const dark = isDarkNow();
+  document.documentElement.dataset.theme = dark ? 'light' : 'dark';
+  themeBtn.textContent = dark ? 'Switch to dark view' : 'Switch to light view';
+  if (map) map.setStyle(mapStyle());
+});
+const mapStyle = () => isDarkNow() ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
+
+/* ---------------- Overview ---------------- */
+function renderOverview(){
+  const box = document.getElementById('trafficBars');
+  const max = Math.max(1, ...traffic);
+  box.innerHTML = traffic.map((v, i) => `<i style="height:${Math.round(v/max*100)}%"><b${i===todayIdx()?' style="opacity:1"':''}></b></i>`).join('');
+  box.querySelectorAll('i')[todayIdx()].classList.add('today');
+  const sum = traffic.reduce((a, b) => a + b, 0);
+  const pct = traffic[todayIdx()];
+  document.getElementById('trafficDelta').textContent = sum + ' total this week' + (pct ? ' · ' + pct + ' today' : '') + ' (up from 5 last week)';
+  const open = db.filter(p => p.status !== 'Fixed');
+  const high = open.filter(p => p.sev === 'High');
+  document.getElementById('awaitCount').textContent = open.length;
+  document.getElementById('awaitDelta').textContent = high.length + ' flagged high severity';
+  const newest = db.slice().sort((a, b) => b.ts - a.ts)[0];
+  document.getElementById('liveLastEvent').textContent = newest ? fmtTime(newest.ts) : '—';
+  const node = NODES[nodeIdx];
+  document.getElementById('ovNodeLabel').textContent = node.label + ' · ' + node.route;
+  document.getElementById('liveNet').textContent = node.ip;
+  renderPriority(open);
+}
+
+function renderPriority(open){
+  const el = document.getElementById('priorityList');
+  if (!el) return;
+  const top = open.slice().sort((a, b) => priorityOf(b) - priorityOf(a)).slice(0, 4);
+  const max = Math.max(1, ...top.map(priorityOf));
+  el.innerHTML = top.length ? top.map(p => {
+    const s = priorityOf(p);
+    return `<div class="priority-item">
+      <div class="p-name">${p.name}<small>${p.sev} severity · ${p.hits || 1} hit${(p.hits || 1) > 1 ? 's' : ''} · ${fmtTime(p.ts)}</small></div>
+      <div class="priority-bar"><i style="width:${Math.round(s / max * 100)}%"></i></div>
+      <div class="p-score">${s.toFixed(1)}</div>
+    </div>`;
+  }).join('') : '<div class="hint" style="margin:8px 0 0;">Nothing open right now.</div>';
+}
+
+/* ---------------- Live IMU stream ---------------- */
+const imu = [];
+let peak = 2.8;
+let spike = 0;
+let cruiseSpeed = 42;
+const canvas = document.getElementById('imuCanvas');
+const ctx = canvas.getContext('2d');
+const imuNowEl = document.getElementById('imuNow');
+const imuPeakEl = document.getElementById('imuPeak');
+
+function drawIMU(){
+  ctx.clearRect(0, 0, 600, 100);
+  const ink = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#20242A';
+  const dim = getComputedStyle(document.documentElement).getPropertyValue('--ink-dim').trim() || '#5B6058';
+  ctx.strokeStyle = dim; ctx.fillStyle = dim;
+  ctx.font = '10px Inter, sans-serif';
+  for (const g of [0, 1, 2, 3]) {
+    const y = 96 - (g / 3.4) * 90;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(600, y); ctx.stroke();
+    ctx.fillText(g.toFixed(1), 3, y - 3);
+  }
+  if (imu.length < 2) return;
+  ctx.strokeStyle = '#C4551C';
+  ctx.lineWidth = 2.2; ctx.beginPath();
+  imu.forEach((v, i) => {
+    const x = (i / 60) * 592 + 4;
+    const y = 96 - (Math.min(v, 3.4) / 3.4) * 90;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+
+let simTimer = setInterval(() => {
+  cruiseSpeed = Math.max(18, Math.min(70, cruiseSpeed + (Math.random() - 0.5) * 8));
+  document.getElementById('imuSpeed').textContent = Math.round(cruiseSpeed);
+  spike = Math.max(0, spike - 0.5);
+  const v = spike + (Math.random() * 0.5 + 0.5);
+  imu.push(v); if (imu.length > 60) imu.shift();
+  imuNowEl.textContent = v.toFixed(2) + ' g';
+  if (v > peak) { peak = v; imuPeakEl.textContent = peak.toFixed(2) + ' g'; }
+  drawIMU();
+}, 1500);
+
+/* ---------------- Node polling ---------------- */
+const nodeStatus = document.getElementById('nodeStatus');
+let nodeLive = false;
+function pollNode(){
+  const node = NODES[nodeIdx];
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 2500);
+  fetch(node.api, {signal: ctrl.signal})
+    .then(r => r.json())
+    .then(() => { nodeLive = true; nodeStatus.innerHTML = node.label + ' <b>responding</b> — showing its live feed.'; })
+    .catch(() => { nodeStatus.innerHTML = node.label + ' not reachable from here — showing a <b>demo stream</b> (same feed works when served by that ESP32 on your local network).'; })
+    .finally(() => clearTimeout(t));
+}
+
+/* ---------------- Simulate detection ---------------- */
+document.getElementById('simBtn').addEventListener('click', () => {
+  const node = NODES[nodeIdx];
+  const jitOff = () => (Math.random() - 0.5) * 0.02;
+  const S = 1 + Math.random() * 2.2;
+  const speed = Math.round(20 + Math.random() * 45);
+  const g = +(S * Math.pow(speed / VREF, 2)).toFixed(2);
+  const sev = severityFrom(g, speed);
+  db.unshift({
+    id: 'n' + Date.now(), source: 'node', node: node.id, name: 'Auto detection · ' + node.route,
+    sev, status: 'Awaiting inspection', note: 'Live sensor reading',
+    lng: node.lng + jitOff(), lat: node.lat + jitOff(), g, speed, hits: 1, ts: now()
+  });
+  saveDB(db);
+  traffic[todayIdx()]++; saveTraffic();
+  document.getElementById('liveLcd').textContent = 'Pothole detected';
+  spike = 2.4; imu.push(2.4); if (imu.length > 60) imu.shift();
+  if (2.4 > peak) { peak = 2.4; imuPeakEl.textContent = peak.toFixed(2) + ' g'; }
+  document.getElementById('livePeak').textContent = peak.toFixed(2) + ' g';
+  render(); renderReports();
+  showTab('location');
 });
 
-const pins=document.querySelectorAll('.pin');
-const detailPanel=document.getElementById('detailPanel');
-const dName=document.getElementById('dName'), dMeta=document.getElementById('dMeta'), dFix=document.getElementById('dFix');
-const logList=document.getElementById('logList');
-function paintPin(g){
-  pins.forEach(p=>p.classList.remove('sel'));
-  g.classList.add('sel');
-  dName.textContent=g.dataset.name;
-  dMeta.textContent=g.dataset.sev+' severity · '+g.dataset.time;
-  dFix.textContent=g.dataset.fix;
-  detailPanel.classList.add('show');
+/* ---------------- Mapbox map ---------------- */
+const hasMapbox = typeof mapboxgl !== 'undefined' && MAPBOX_TOKEN && MAPBOX_TOKEN !== 'YOUR_MAPBOX_PUBLIC_TOKEN';
+let map = null;
+const mapTokenEl = document.getElementById('mapToken');
+const chipAllEl = document.getElementById('chipAll');
+const activeSev = ['High', 'Medium', 'Low'];
+
+function geoData(){
+  return {
+    type: 'FeatureCollection',
+    features: db.map(p => ({
+      type: 'Feature',
+      geometry: {type: 'Point', coordinates: [p.lng, p.lat]},
+      properties: {id: p.id, name: p.name, sev: p.sev, status: p.status, time: fmtTime(p.ts), note: p.note || '', source: p.source, node: p.node, g: p.g, speed: p.speed, hits: p.hits || 1}
+    }))
+  };
 }
-pins.forEach(g=>g.addEventListener('click',()=>paintPin(g)));
-function renderLog(){
-  logList.innerHTML='';
-  pins.forEach(g=>{
-    const row=document.createElement('div');
-    row.className='log-row';
-    row.innerHTML=`<span>${g.dataset.name}</span><span class="sev sev-${g.dataset.sev.toLowerCase()}">${g.dataset.sev}</span>`;
-    row.addEventListener('click',()=>{paintPin(g); detailPanel.scrollIntoView({behavior:'smooth', block:'nearest'});});
+
+function addLayers(){
+  if (!map || map.getSource('potholes')) return;
+  map.addSource('potholes', {type: 'geojson', data: geoData()});
+  map.addLayer({
+    id: 'pothole-circles', type: 'circle', source: 'potholes',
+    paint: {
+      'circle-radius': ['case', ['==', ['get','sev'], 'High'], 11, ['==', ['get','sev'], 'Medium'], 9, 7],
+      'circle-color': ['case',
+        ['==', ['get','status'], 'Fixed'], '#7B8794',
+        ['match', ['get','sev'], 'High', '#A23B2E', 'Medium', '#B8860B', '#3F7256']],
+      'circle-opacity': 0.95,
+      'circle-stroke-color': isDarkNow() ? '#212429' : '#FFFFFF',
+      'circle-stroke-width': 2
+    }
+  });
+  map.on('click', 'pothole-circles', e => { if (e.features[0]) openFeature(e.features[0]); });
+  map.on('mousemove', 'pothole-circles', e => { map.getCanvas().style.cursor = e.features.length ? 'pointer' : ''; });
+  applyFilter();
+}
+
+function setMapData(){ if (map && map.getSource('potholes')) map.getSource('potholes').setData(geoData()); }
+
+function applyFilter(){
+  if (!map || !map.getLayer('pothole-circles')) return;
+  map.setFilter('pothole-circles', ['in', ['get','sev'], ['literal', activeSev]]);
+}
+
+if (hasMapbox) {
+  mapboxgl.accessToken = MAPBOX_TOKEN;
+  map = new mapboxgl.Map({container: 'potholeMap', style: mapStyle(), center: MAP_CENTER, zoom: MAP_ZOOM});
+  map.addControl(new mapboxgl.NavigationControl({showCompass: false}), 'top-right');
+  map.on('load', addLayers);
+  map.on('style.load', addLayers);
+} else {
+  mapTokenEl.classList.remove('hide');
+}
+
+/* ---------------- Map interactions ---------------- */
+const detailPanel = document.getElementById('detailPanel');
+const dName = document.getElementById('dName'), dMeta = document.getElementById('dMeta'), dFix = document.getElementById('dFix');
+const logList = document.getElementById('logList');
+
+const popupEl = () => new mapboxgl.Popup({offset: 16, closeButton: false});
+
+function openFeature(f){
+  const p = f.properties;
+  dName.textContent = p.name;
+  dMeta.textContent = p.sev + ' severity · ' + p.source + ' · ' + p.status + ' · ' + p.time + (p.node ? ' · ' + nodeOf(p.node).route : '');
+  dSpec.textContent = p.g ? gSpec(p) + (p.hits > 1 ? ' · ' + p.hits + ' hits' : '') : (p.hits > 1 ? p.hits + ' reports' : '');
+  dFix.textContent = p.note;
+  detailPanel.classList.add('show');
+  if (!map) return;
+  const coords = f.geometry.coordinates;
+  map.flyTo({center: coords, zoom: 13});
+  popupEl()
+    .setLngLat(coords)
+    .setHTML(`<div class="pin-pop"><h4>${p.name}</h4>
+      <p><span class="sev sev-${p.sev.toLowerCase()}">${p.sev}</span> <span class="status st-${p.status.toLowerCase().split(' ')[0]}">${p.status}</span></p>
+      <p>${p.time} · via ${p.source}${p.node ? ' · ' + nodeOf(p.node).route : ''}</p>
+      ${p.g ? `<p>${gSpec(p)}${p.hits > 1 ? ' · ' + p.hits + ' hits' : ''}</p>` : ''}
+      ${p.note ? '<p>' + p.note + '</p>' : ''}</div>`)
+    .addTo(map);
+  setTimeout(() => logList.querySelectorAll('.log-row').forEach(r => r.style.borderColor = ''), 4000);
+}
+
+function renderList(){
+  logList.innerHTML = '';
+  db.slice().sort(sorter).forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    const next = NEXT[p.status];
+    const btn = next
+      ? `<button class="mini-btn" data-adv="${p.id}">→ ${next}</button>`
+      : `<button class="mini-btn" disabled>Fixed</button>`;
+    const spec = gSpec(p) ? ' · ' + gSpec(p) : '';
+    const route = p.node ? ' · ' + nodeOf(p.node).route : '';
+    const score = p.status !== 'Fixed' ? ` · <span class="score">score ${priorityOf(p).toFixed(1)}</span>` : '';
+    row.innerHTML = `
+      <div class="log-main">
+        <div>${p.name}${score}</div>
+        <div class="log-sub">${fmtTime(p.ts)} · ${p.source}${route}${spec}${p.note ? ' · ' + p.note : ''}</div>
+      </div>
+      <div class="log-meta">
+        <div><span class="sev sev-${p.sev.toLowerCase()}">${p.sev}</span> <span class="status st-${p.status.toLowerCase().split(' ')[0]}">${p.status}</span></div>
+        ${btn}
+      </div>`;
+    row.addEventListener('click', () => {
+      openFeature({properties: p, geometry: {type: 'Point', coordinates: [p.lng, p.lat]}});
+      highlightRow(row);
+    });
     logList.appendChild(row);
   });
+  logList.querySelectorAll('[data-adv]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    const p = db.find(x => x.id === b.dataset.adv);
+    if (p && NEXT[p.status]) { p.status = NEXT[p.status]; saveDB(db); render(); renderReports(); }
+  }));
 }
-renderLog();
 
-const segBtns=document.querySelectorAll('#sevSeg .seg-btn');
-let currentSev='Medium';
-segBtns.forEach(b=>b.addEventListener('click',()=>{
-  segBtns.forEach(x=>x.setAttribute('aria-pressed','false'));
-  b.setAttribute('aria-pressed','true');
-  currentSev=b.dataset.sev;
+function highlightRow(row){
+  row.style.borderColor = '#C4551C';
+  setTimeout(() => row.style.borderColor = '', 2500);
+}
+
+/* ---------------- Ledger sort ---------------- */
+let sortPriority = false;
+const sorter = (a, b) => sortPriority ? (priorityOf(b) - priorityOf(a)) || (b.ts - a.ts) : b.ts - a.ts;
+function setSort(p){
+  sortPriority = p;
+  document.getElementById('sortNewest').classList.toggle('on', !p);
+  document.getElementById('sortPriority').classList.toggle('on', p);
+  renderList();
+}
+document.getElementById('sortNewest').addEventListener('click', () => setSort(false));
+document.getElementById('sortPriority').addEventListener('click', () => setSort(true));
+
+/* ---------------- Node switcher ---------------- */
+function renderNodeChips(){
+  const wrap = document.getElementById('nodeSwitch');
+  wrap.innerHTML = '<span class="hint" style="margin:0 4px 0 0;">Node:</span>' +
+    NODES.map((n, i) => `<button class="chip${i === nodeIdx ? ' on' : ''}" data-node="${i}">${n.label}</button>`).join('');
+  wrap.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+    nodeIdx = Number(c.dataset.node);
+    renderNodeChips(); renderLive(); render();
+  }));
+}
+function renderLive(){
+  const node = NODES[nodeIdx];
+  document.getElementById('liveIp').textContent = node.ip;
+  document.getElementById('liveLink').href = 'http://' + node.ip;
+  pollNode();
+}
+
+/* ---------------- Severity chips ---------------- */
+document.querySelectorAll('.legend .chip[data-sev]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const sev = chip.dataset.sev;
+    const i = activeSev.indexOf(sev);
+    if (i >= 0) activeSev.splice(i, 1); else activeSev.push(sev);
+    chip.classList.toggle('on');
+    chipAllEl.classList.toggle('on', activeSev.length === 3);
+    applyFilter();
+  });
+});
+chipAllEl.addEventListener('click', () => {
+  activeSev.length = 0; activeSev.push('High', 'Medium', 'Low');
+  document.querySelectorAll('.legend .chip[data-sev]').forEach(c => c.classList.add('on'));
+  chipAllEl.classList.add('on');
+  applyFilter();
+});
+
+/* ---------------- Export / reset ---------------- */
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const rows = [['Name','Source','Severity','Status','Time','Longitude','Latitude','Note']];
+  db.forEach(p => rows.push([p.name, p.source, p.sev, p.status, fmtTime(p.ts), p.lng, p.lat, p.note]));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'}));
+  a.download = 'roadpulse-potholes.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  localStorage.removeItem('rp_db');
+  localStorage.removeItem('rp_traffic');
+  db = seedDB(); saveDB(db);
+  traffic = loadTraffic();
+  render(); renderReports();
+  setMapData();
+});
+
+/* ---------------- Report form ---------------- */
+const segBtns = document.querySelectorAll('#sevSeg .seg-btn');
+let currentSev = 'Medium';
+segBtns.forEach(b => b.addEventListener('click', () => {
+  segBtns.forEach(x => x.setAttribute('aria-pressed', 'false'));
+  b.setAttribute('aria-pressed', 'true');
+  currentSev = b.dataset.sev;
 }));
 
-const geoBtn=document.getElementById('geoBtn');
-geoBtn.addEventListener('click',()=>{
-  if(!navigator.geolocation){geoBtn.textContent='Not supported here'; return;}
-  geoBtn.disabled=true; geoBtn.textContent='Locating…';
+const geoBtn = document.getElementById('geoBtn');
+let lastGeo = null;
+geoBtn.addEventListener('click', () => {
+  if (!navigator.geolocation) { geoBtn.textContent = 'Not supported here'; return; }
+  geoBtn.disabled = true; geoBtn.textContent = 'Locating…';
   navigator.geolocation.getCurrentPosition(
-    pos=>{
-      document.getElementById('loc').value = pos.coords.latitude.toFixed(5)+', '+pos.coords.longitude.toFixed(5);
-      geoBtn.disabled=false; geoBtn.textContent='Use my location';
+    pos => {
+      lastGeo = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+      document.getElementById('loc').value = lastGeo.lat.toFixed(5) + ', ' + lastGeo.lng.toFixed(5);
+      geoBtn.disabled = false; geoBtn.textContent = 'Use my location';
     },
-    ()=>{ geoBtn.disabled=false; geoBtn.textContent='Location unavailable'; },
-    {timeout:8000}
+    () => { geoBtn.disabled = false; geoBtn.textContent = 'Location unavailable'; },
+    {timeout: 8000}
   );
 });
 
-let photoURL=null;
-document.getElementById('photoInput').addEventListener('change', e=>{
-  const f=e.target.files[0];
-  if(!f) return;
-  photoURL=URL.createObjectURL(f);
-  document.getElementById('photoThumb').style.backgroundImage=`url(${photoURL})`;
+let photoURL = null;
+document.getElementById('photoInput').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  photoURL = URL.createObjectURL(f);
+  document.getElementById('photoThumb').style.backgroundImage = `url(${photoURL})`;
 });
 
-const reports=[];
-const form=document.getElementById('reportForm');
-const toast=document.getElementById('toast');
-const rList=document.getElementById('reportsList');
-form.addEventListener('submit', e=>{
+const form = document.getElementById('reportForm');
+const toast = document.getElementById('toast');
+const rList = document.getElementById('reportsList');
+
+form.addEventListener('submit', e => {
   e.preventDefault();
-  const loc=document.getElementById('loc').value.trim();
-  if(!loc) return;
-  reports.unshift({loc, sev:currentSev, photo:photoURL});
-  rList.innerHTML = reports.map(r=>`
-    <div class="report-item">
-      <div class="report-thumb" style="${r.photo?`background-image:url(${r.photo})`:''}"></div>
-      <div class="rtext">${r.loc} <span class="sev sev-${r.sev.toLowerCase()}" style="margin-left:6px;">${r.sev}</span></div>
-      <div class="rtime">just now</div>
-    </div>`).join('');
+  const loc = document.getElementById('loc').value.trim();
+  if (!loc) return;
+  let lng, lat;
+  const parsed = loc.match(/^([-+]?\d*\.?\d+),\s*([-+]?\d*\.?\d+)$/);
+  if (parsed) { lat = parseFloat(parsed[1]); lng = parseFloat(parsed[2]); }
+  else if (lastGeo) { lng = lastGeo.lng; lat = lastGeo.lat; }
+  else {
+    const jit = () => (Math.random() - 0.5) * 0.02;
+    lng = MAP_CENTER[0] + jit(); lat = MAP_CENTER[1] + jit() * 0.8;
+  }
+  const desc = document.getElementById('desc').value.trim();
+  const dup = db.find(x => x.status !== 'Fixed' && Math.abs(x.lng - lng) < 0.0012 && Math.abs(x.lat - lat) < 0.0012);
+  if (dup) {
+    dup.hits = (dup.hits || 1) + 1;
+    dup.ts = now();
+    if (desc) dup.note = (dup.note ? dup.note + ' · ' : '') + desc;
+    saveDB(db);
+    render(); renderReports();
+    toast.textContent = 'That spot is already logged — I attached your report to its entry and bumped its priority.';
+  } else {
+    db.unshift({
+      id: 'r' + Date.now(), source: 'report', name: loc, sev: currentSev,
+      status: 'Reported', note: desc, lng, lat, ts: now(), hits: 1, photo: photoURL || null
+    });
+    saveDB(db);
+    render(); renderReports();
+    toast.textContent = 'Thanks — it\'s on the map now. The maintenance team can see it.';
+  }
   toast.classList.add('show');
   form.reset();
-  document.getElementById('photoThumb').style.backgroundImage='';
-  photoURL=null;
-  setTimeout(()=>toast.classList.remove('show'),3500);
+  document.getElementById('photoThumb').style.backgroundImage = '';
+  photoURL = null; lastGeo = null;
+  setTimeout(() => toast.classList.remove('show'), 3500);
 });
+
+function renderReports(){
+  rList.innerHTML = '';
+  db.filter(p => p.source === 'report').slice().sort((a, b) => b.ts - a.ts).forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'report-item';
+    const next = NEXT[p.status];
+    div.innerHTML = `
+      <div class="report-thumb" style="${p.photo ? `background-image:url(${p.photo})` : ''}"></div>
+      <div class="rtext">${p.name}
+        <span class="sev sev-${p.sev.toLowerCase()}" style="margin-left:6px;">${p.sev}</span>
+        <span class="status st-${p.status.toLowerCase().split(' ')[0]}" style="margin-left:4px;">${p.status}</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+        <div class="rtime">${fmtTime(p.ts)}</div>
+        ${next ? `<button class="mini-btn" data-radv="${p.id}">→ ${next}</button>` : '<button class="mini-btn" disabled>Fixed</button>'}
+      </div>`;
+    div.querySelector('[data-radv]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      const pp = db.find(x => x.id === e.target.dataset.radv);
+      if (pp && NEXT[pp.status]) { pp.status = NEXT[pp.status]; saveDB(db); render(); renderReports(); }
+    });
+    rList.appendChild(div);
+  });
+}
+
+function render(){ renderOverview(); renderList(); setMapData(); if (hasMapbox && map) applyFilter(); }
+render();
+renderReports();
+document.getElementById('railNodes').textContent = NODES.length + ' nodes';
+renderNodeChips();
+renderLive();
+
+/* ---------------- Set static signal bar heights ---------------- */
+document.querySelectorAll('#signalBars i').forEach((b, i) => { b.style.height = [6, 11, 16, 22][i] + 'px'; });
 </script>
 </body>
 </html>
